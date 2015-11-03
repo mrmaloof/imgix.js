@@ -2992,8 +2992,7 @@ var fluidDefaults = {
   throttle: 200,
   maxHeight: 5000,
   maxWidth: 5000,
-  onLoad: null,
-  dontSkipHidden: false
+  onLoad: null
 };
 
 function getFluidDefaults() {
@@ -3030,7 +3029,7 @@ imgix.FluidSet.prototype.updateSrc = function (elem, pinchScale) {
   }
 
   // Short-circuit if the image is hidden
-  if (!this.options.dontSkipHidden && !elem.offsetWidth && !elem.offsetHeight && !elem.getClientRects().length) {
+  if (!elem.offsetWidth && !elem.offsetHeight && !elem.getClientRects().length) {
     return;
   }
 
@@ -3118,16 +3117,13 @@ imgix.FluidSet.prototype.getImgDetails = function (elem, zoomMultiplier) {
   if (!elem) {
     return;
   }
-  
+
   var dpr = imgix.helpers.getDPR(elem),
     pixelStep = this.options.pixelStep,
     elemSize = imgix.helpers.calculateElementSize(imgix.isImageElement(elem) ? elem.parentNode : elem),
     elemWidth = imgix.helpers.pixelRound(elemSize.width * zoomMultiplier, pixelStep),
     elemHeight = imgix.helpers.pixelRound(elemSize.height * zoomMultiplier, pixelStep);
-    console.log('pixelRound: '+imgix.helpers.pixelRound(elemSize.width * zoomMultiplier, pixelStep));
-    console.log('elemSize.width: '+elemSize.width+', zoomMultiplier: '+zoomMultiplier+', pixelStep'+ pixelStep);
-    console.log('elemSize: ',elemSize);
-    console.log('dim(f): ',elemWidth,'x',elemHeight);
+
   if (!elem.url) {
     elem.url = new imgix.URL(imgix.helpers.getImgSrc(elem));
   }
@@ -3138,8 +3134,6 @@ imgix.FluidSet.prototype.getImgDetails = function (elem, zoomMultiplier) {
   elemWidth = Math.min(elemWidth, this.options.maxWidth);
   elemHeight = Math.min(elemHeight, this.options.maxHeight);
 
-  console.log('dim(e): ',elemWidth,'x',elemHeight);
-  console.log('elem.url: ', elem.url);
   if (dpr !== 1 && !this.options.ignoreDPR) {
     elem.url.setDPR(dpr);
   }
@@ -3151,7 +3145,6 @@ imgix.FluidSet.prototype.getImgDetails = function (elem, zoomMultiplier) {
   if (this.options.fitImgTagToContainerHeight && this.options.fitImgTagToContainerWidth) {
     elem.url.setFit('crop');
   }
-  console.log('dim(d): ',elemWidth,'x',elemHeight);
 
   if (elem.url.getFit() === 'crop') {
     if (elemHeight > 0 && (!imgix.isImageElement(elem) || (imgix.isImageElement(elem) && this.options.fitImgTagToContainerHeight))) {
@@ -3174,20 +3167,18 @@ imgix.FluidSet.prototype.getImgDetails = function (elem, zoomMultiplier) {
     elem.style.backgroundSize = 'cover';
     elem.style.backgroundPosition = '50% 50%';
   }
-  console.log('dim(c): ',elemWidth,'x',elemHeight);
 
   var overrides = {};
   if (this.options.onChangeParamOverride !== null && typeof this.options.onChangeParamOverride === 'function') {
     overrides = this.options.onChangeParamOverride(elemWidth, elemHeight, elem.url.getParams(), elem);
   }
-  console.log('dim(b): ',elemWidth,'x',elemHeight);
 
   for (var k in overrides) {
     if (overrides.hasOwnProperty(k)) {
       elem.url.setParam(k, overrides[k]);
     }
   }
-  console.log('dim(a): ',elemWidth,'x',elemHeight);
+
   return {
     url: elem.url.getURL(),
     width: elemWidth,
@@ -3307,8 +3298,6 @@ imgix.FluidSet.prototype.attachWindowResizer = function () {
 
 `onLoad` __function__ Called when an image is loaded. It's passed the `HTMLElement` that contains the image that was just loaded and the URL of that image (`HTMLElement' el, `String` imageURL)<br>
 
-`dontSkipHidden` __boolean__ Do not skip loading of hidden images.
-
  <b>Default values</b> (passed config will extend these values)
 
   {
@@ -3330,8 +3319,7 @@ imgix.FluidSet.prototype.attachWindowResizer = function () {
     throttle: 200,
     maxWidth: 5000,
     maxHeight: 5000,
-    onLoad: null,
-    dontSkipHidden: false
+    onLoad: null
   }
 
 
