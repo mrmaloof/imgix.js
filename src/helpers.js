@@ -216,11 +216,15 @@ imgix.helpers = {
   },
 
   calculateElementSize: function (elem) {
+    var computedStyle = getComputedStyle(elem);
+    var elemHeight = elem.clientHeight;  // height with padding
+    var elemWidth = elem.clientWidth;   // width with padding
+    elemHeight -= parseFloat(computedStyle.paddingTop) + parseFloat(computedStyle.paddingBottom);
+    elemWidth -= parseFloat(computedStyle.paddingLeft) + parseFloat(computedStyle.paddingRight);
     var val = {
-      width: elem.offsetWidth,
-      height: elem.offsetHeight
+      width: elemWidth,
+      height: elemHeight
     };
-
     if (elem.parentNode === null || elem === document.body) {
       val.width = this.getWindowWidth();
       val.height = this.getWindowHeight();

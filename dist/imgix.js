@@ -1,4 +1,4 @@
-/*! http://www.imgix.com imgix.js - v1.2.0 - 2015-10-07 
+/*! http://www.imgix.com imgix.js - v1.2.0 - 2015-11-03 
  _                    _             _
 (_)                  (_)           (_)
  _  _ __ ___    __ _  _ __  __      _  ___
@@ -2102,11 +2102,15 @@ imgix.helpers = {
   },
 
   calculateElementSize: function (elem) {
+    var computedStyle = getComputedStyle(elem);
+    var elemHeight = elem.clientHeight;  // height with padding
+    var elemWidth = elem.clientWidth;   // width with padding
+    elemHeight -= parseFloat(computedStyle.paddingTop) + parseFloat(computedStyle.paddingBottom);
+    elemWidth -= parseFloat(computedStyle.paddingLeft) + parseFloat(computedStyle.paddingRight);
     var val = {
-      width: elem.offsetWidth,
-      height: elem.offsetHeight
+      width: elemWidth,
+      height: elemHeight
     };
-
     if (elem.parentNode === null || elem === document.body) {
       val.width = this.getWindowWidth();
       val.height = this.getWindowHeight();
@@ -2187,6 +2191,12 @@ imgix.helpers = {
   matchesSelector: function (elem, selector) {
     var children = (elem.parentNode || document).querySelectorAll(selector);
     return Array.prototype.slice.call(children).indexOf(elem) > -1;
+  },
+
+  warn: function(message) {
+    if (window.console) {
+      window.console.warn(message);
+    }
   }
 };
 
@@ -2226,7 +2236,7 @@ imgix.URL = function (url, imgParams) {
 imgix.URL.prototype.attachGradientTo = function (elemOrSel, baseColor, callback) {
   this.getColors(16, function (colors) {
     if (colors && colors.length < 9) {
-      console.warn('not enough colors to create a gradient');
+      imgix.helpers.warn('not enough colors to create a gradient');
       if (callback && typeof callback === 'function') {
         callback(false);
       }
@@ -2399,7 +2409,6 @@ imgix.URL.prototype._handleAutoUpdate = function () {
 
         img.onload = img.onerror = function () {
           if (!isVersionFresh(curV)) {
-            // console.log(curV + ' is an old version -- not updating');
             return;
           }
 
@@ -2567,7 +2576,7 @@ imgix.URL.prototype.clearParams = function (runUpdate) {
  */
 imgix.URL.prototype.setParams = function (dict, doOverride) {
   if (imgix.instanceOfImgixURL(dict)) {
-    console.warn('setParams warning: dictionary of imgix params expectd. imgix URL instance passed instead');
+    imgix.helpers.warn('setParams warning: dictionary of imgix params expectd. imgix URL instance passed instead');
     return;
   }
   for (var k in dict) {
@@ -2603,7 +2612,7 @@ imgix.URL.prototype.setParam = function (param, value, doOverride, noUpdate) {
 
   // TODO: handle aliases -- only need on build?
   if (imgix.getAllParams().indexOf(param) === -1) {
-    console.warn('\'' + param + '\' is an invalid imgix param');
+    imgix.helpers.warn('\'' + param + '\' is an invalid imgix param');
     return this;
   }
 
@@ -2983,7 +2992,8 @@ var fluidDefaults = {
   throttle: 200,
   maxHeight: 5000,
   maxWidth: 5000,
-  onLoad: null
+  onLoad: null,
+  dontSkipHidden: false
 };
 
 function getFluidDefaults() {
@@ -3020,7 +3030,7 @@ imgix.FluidSet.prototype.updateSrc = function (elem, pinchScale) {
   }
 
   // Short-circuit if the image is hidden
-  if (!elem.offsetWidth && !elem.offsetHeight && !elem.getClientRects().length) {
+  if (!this.options.dontSkipHidden && !elem.offsetWidth && !elem.offsetHeight && !elem.getClientRects().length) {
     return;
   }
 
@@ -3048,7 +3058,7 @@ imgix.FluidSet.prototype.updateSrc = function (elem, pinchScale) {
 
         i.getColors(16, function (colors) {
           if (!colors) {
-            console.warn('No colors found for', i.getURL(), 'for element', elem);
+            imgix.helpers.warn('No colors found for', i.getURL(), 'for element', elem);
             return;
           }
 
@@ -3108,13 +3118,16 @@ imgix.FluidSet.prototype.getImgDetails = function (elem, zoomMultiplier) {
   if (!elem) {
     return;
   }
-
+  
   var dpr = imgix.helpers.getDPR(elem),
     pixelStep = this.options.pixelStep,
     elemSize = imgix.helpers.calculateElementSize(imgix.isImageElement(elem) ? elem.parentNode : elem),
     elemWidth = imgix.helpers.pixelRound(elemSize.width * zoomMultiplier, pixelStep),
     elemHeight = imgix.helpers.pixelRound(elemSize.height * zoomMultiplier, pixelStep);
-
+    console.log('pixelRound: '+imgix.helpers.pixelRound(elemSize.width * zoomMultiplier, pixelStep));
+    console.log('elemSize.width: '+elemSize.width+', zoomMultiplier: '+zoomMultiplier+', pixelStep'+ pixelStep);
+    console.log('elemSize: ',elemSize);
+    console.log('dim(f): ',elemWidth,'x',elemHeight);
   if (!elem.url) {
     elem.url = new imgix.URL(imgix.helpers.getImgSrc(elem));
   }
@@ -3125,6 +3138,8 @@ imgix.FluidSet.prototype.getImgDetails = function (elem, zoomMultiplier) {
   elemWidth = Math.min(elemWidth, this.options.maxWidth);
   elemHeight = Math.min(elemHeight, this.options.maxHeight);
 
+  console.log('dim(e): ',elemWidth,'x',elemHeight);
+  console.log('elem.url: ', elem.url);
   if (dpr !== 1 && !this.options.ignoreDPR) {
     elem.url.setDPR(dpr);
   }
@@ -3136,6 +3151,7 @@ imgix.FluidSet.prototype.getImgDetails = function (elem, zoomMultiplier) {
   if (this.options.fitImgTagToContainerHeight && this.options.fitImgTagToContainerWidth) {
     elem.url.setFit('crop');
   }
+  console.log('dim(d): ',elemWidth,'x',elemHeight);
 
   if (elem.url.getFit() === 'crop') {
     if (elemHeight > 0 && (!imgix.isImageElement(elem) || (imgix.isImageElement(elem) && this.options.fitImgTagToContainerHeight))) {
@@ -3158,18 +3174,20 @@ imgix.FluidSet.prototype.getImgDetails = function (elem, zoomMultiplier) {
     elem.style.backgroundSize = 'cover';
     elem.style.backgroundPosition = '50% 50%';
   }
+  console.log('dim(c): ',elemWidth,'x',elemHeight);
 
   var overrides = {};
   if (this.options.onChangeParamOverride !== null && typeof this.options.onChangeParamOverride === 'function') {
     overrides = this.options.onChangeParamOverride(elemWidth, elemHeight, elem.url.getParams(), elem);
   }
+  console.log('dim(b): ',elemWidth,'x',elemHeight);
 
   for (var k in overrides) {
     if (overrides.hasOwnProperty(k)) {
       elem.url.setParam(k, overrides[k]);
     }
   }
-
+  console.log('dim(a): ',elemWidth,'x',elemHeight);
   return {
     url: elem.url.getURL(),
     width: elemWidth,
@@ -3289,6 +3307,8 @@ imgix.FluidSet.prototype.attachWindowResizer = function () {
 
 `onLoad` __function__ Called when an image is loaded. It's passed the `HTMLElement` that contains the image that was just loaded and the URL of that image (`HTMLElement' el, `String` imageURL)<br>
 
+`dontSkipHidden` __boolean__ Do not skip loading of hidden images.
+
  <b>Default values</b> (passed config will extend these values)
 
   {
@@ -3310,7 +3330,8 @@ imgix.FluidSet.prototype.attachWindowResizer = function () {
     throttle: 200,
     maxWidth: 5000,
     maxHeight: 5000,
-    onLoad: null
+    onLoad: null,
+    dontSkipHidden: false
   }
 
 
@@ -3342,7 +3363,7 @@ imgix.fluid = function () {
 
     for (var i = 0; i < passedKeys.length; i++) {
       if (goodKeys.indexOf(passedKeys[i]) === -1) {
-        console.warn('\'' + passedKeys[i] + '\' is not a valid imgix.fluid config option. See https://github.com/imgix/imgix.js/blob/master/docs/api.md#imgix.fluid for a list of valid options.');
+        imgix.helpers.warn('\'' + passedKeys[i] + '\' is not a valid imgix.fluid config option. See https://github.com/imgix/imgix.js/blob/master/docs/api.md#imgix.fluid for a list of valid options.');
       }
     }
 
@@ -3590,7 +3611,7 @@ imgix.hexToRGB = function (hex) {
     g = parseInt(hex.slice(2, 4), 16);
     b = parseInt(hex.slice(4, 6), 16);
   } else {
-    console.warn('invalid hex color:', hex);
+    imgix.helpers.warn('invalid hex color:', hex);
   }
 
   return 'rgb(' + r + ', ' + g + ', ' + b + ')';
